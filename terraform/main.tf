@@ -23,7 +23,6 @@ terraform {
 
   backend "s3" {
     bucket         = "auto-repair-shop-terraform-state"
-    key            = "fiap-13soat-auto-repair-shop-k8s/terraform.tfstate"
     region         = "us-east-2"
     dynamodb_table = "auto-repair-shop-terraform-locks"
     encrypt        = true

@@ -56,7 +56,7 @@ jobs:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
 
       - name: Terraform Init
-        run: terraform init
+        run: terraform init -backend-config=environments/staging/backend.hcl
 
       - name: Terraform Validate
         run: terraform validate
@@ -110,7 +110,7 @@ jobs:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
 
       - name: Terraform Init
-        run: terraform init
+        run: terraform init -backend-config=environments/production/backend.hcl
 
       - name: Terraform Validate
         run: terraform validate
