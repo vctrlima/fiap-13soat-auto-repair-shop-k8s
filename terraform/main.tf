@@ -116,7 +116,7 @@ data "terraform_remote_state" "lambda" {
 
   config = {
     bucket = "auto-repair-shop-terraform-state"
-    key    = "lambda-infrastructure/terraform.tfstate"
+    key    = "lambda-infrastructure/${var.environment}/terraform.tfstate"
     region = "us-east-2"
   }
 }
