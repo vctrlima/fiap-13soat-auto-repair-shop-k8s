@@ -7,6 +7,15 @@ Terraform modules for provisioning the core AWS infrastructure: VPC, EKS cluster
 
 ---
 
+## Deploy Links
+
+| Environment                  | URL                                        |
+| ---------------------------- | ------------------------------------------ |
+| **API Gateway (Production)** | `https://api.auto-repair-shop.com`         |
+| **API Gateway (Staging)**    | `https://staging-api.auto-repair-shop.com` |
+
+---
+
 ## Table of Contents
 
 - [Purpose](#purpose)
@@ -15,6 +24,7 @@ Terraform modules for provisioning the core AWS infrastructure: VPC, EKS cluster
 - [Project Structure](#project-structure)
 - [Getting Started](#getting-started)
 - [CI/CD & Deployment](#cicd--deployment)
+- [Documentation](#documentation)
 - [API Documentation](#api-documentation)
 - [Related Repositories](#related-repositories)
 
@@ -363,6 +373,26 @@ The pipeline uses **OIDC-based AWS credential assumption** (no long-lived access
 
 ---
 
+## Documentation
+
+- **Architecture Decision Records (ADRs)**: [`docs/adrs/`](docs/adrs/)
+  - [ADR-001: Adoção da AWS como Provedor de Nuvem](docs/adrs/ADR-001-adocao-aws.md)
+  - [ADR-002: Uso de HPA para Escalabilidade](docs/adrs/ADR-002-uso-hpa.md)
+- **Request for Comments (RFCs)**: [`docs/rfcs/`](docs/rfcs/)
+  - [RFC-001: Estratégia de Infraestrutura e Provisionamento com Terraform](docs/rfcs/RFC-001-estrategia-infraestrutura-terraform.md)
+- **Architecture Diagrams**: Included in this README ([Architecture](#architecture))
+
+### Branch Protection
+
+All repositories follow these branch protection rules (configured in GitHub):
+
+- **Branch `main`**: protected — no direct pushes allowed
+- **Merge via Pull Request only**: all changes require a PR with at least 1 approval
+- **CI must pass**: Terraform format check, init, and validate must succeed before merge
+- **Automatic deploys**: staging (auto on push to `main`), production (manual approval gate)
+
+---
+
 ## API Documentation
 
 This is an infrastructure repository that provisions the **API Gateway** as the public entry point. It does not serve APIs directly.
@@ -377,9 +407,9 @@ For the full API documentation (Swagger UI), see the application repository:
 
 This project is part of the **Auto Repair Shop** ecosystem. Deploy in this order:
 
-| #   | Repository                                                                                                  | Description                                     |
-| --- | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
-| 1   | **`fiap-13soat-auto-repair-shop-k8s`** (this repo)                                                          | AWS infrastructure (VPC, EKS, ALB, API Gateway) |
+| #   | Repository                                                                                               | Description                                     |
+| --- | -------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| 1   | **`fiap-13soat-auto-repair-shop-k8s`** (this repo)                                                       | AWS infrastructure (VPC, EKS, ALB, API Gateway) |
 | 2   | [`fiap-13soat-auto-repair-shop-lambda`](https://github.com/vctrlima/fiap-13soat-auto-repair-shop-lambda) | CPF authentication Lambda function              |
 | 3   | [`fiap-13soat-auto-repair-shop-db`](https://github.com/vctrlima/fiap-13soat-auto-repair-shop-db)         | Database infrastructure (RDS PostgreSQL)        |
 | 4   | [`fiap-13soat-auto-repair-shop-app`](https://github.com/vctrlima/fiap-13soat-auto-repair-shop-app)       | Application API                                 |
