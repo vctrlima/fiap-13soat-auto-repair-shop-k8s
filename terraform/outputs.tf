@@ -51,6 +51,11 @@ output "target_group_arn" {
   value       = module.alb.target_group_arn
 }
 
+output "grafana_target_group_arn" {
+  description = "Target Group ARN for Grafana"
+  value       = module.alb.grafana_target_group_arn
+}
+
 # --- API Gateway ---
 output "api_gateway_url" {
   description = "API Gateway invoke URL"

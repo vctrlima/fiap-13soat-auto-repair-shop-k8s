@@ -138,6 +138,8 @@ module "api_gateway" {
   lambda_function_name = data.terraform_remote_state.lambda.outputs.function_name
 
   jwt_access_token_secret = var.jwt_access_token_secret
+
+  grafana_target_group_arn = module.alb.grafana_target_group_arn
 }
 
 # -----------------------------------------------------------------------------
