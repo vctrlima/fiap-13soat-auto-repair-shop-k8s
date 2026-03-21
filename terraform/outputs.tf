@@ -59,7 +59,7 @@ output "grafana_target_group_arn" {
 # --- API Gateway ---
 output "api_gateway_url" {
   description = "API Gateway invoke URL"
-  value       = module.api_gateway.api_endpoint
+  value       = local.lambda_deployed ? module.api_gateway[0].api_endpoint : ""
 }
 
 # --- IAM ---

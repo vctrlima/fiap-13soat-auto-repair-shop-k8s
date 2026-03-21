@@ -128,10 +128,21 @@ data "terraform_remote_state" "lambda" {
     key    = "lambda-infrastructure/${var.environment}/terraform.tfstate"
     region = "us-east-2"
   }
+
+  defaults = {
+    invoke_arn    = ""
+    function_arn  = ""
+    function_name = ""
+  }
+}
+
+locals {
+  lambda_deployed = data.terraform_remote_state.lambda.outputs.function_name != ""
 }
 
 module "api_gateway" {
   source = "./modules/api-gateway"
+  count  = local.lambda_deployed ? 1 : 0
 
   project_name    = var.project_name
   environment     = var.environment
