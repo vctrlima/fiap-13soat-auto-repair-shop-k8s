@@ -111,13 +111,18 @@ jobs:
 
           # Prometheus + Alertmanager (for alerting rules evaluation)
           helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          # Clean up any failed previous release
+          if helm status kube-prometheus-stack -n monitoring 2>/dev/null | grep -q 'STATUS: failed'; then
+            helm uninstall kube-prometheus-stack -n monitoring --wait || true
+            kubectl delete jobs -n monitoring -l app.kubernetes.io/instance=kube-prometheus-stack --ignore-not-found
+          fi
           helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
             --namespace monitoring --create-namespace \
             --set prometheus.prometheusSpec.additionalScrapeConfigs[0].job_name=otel-collector \
             --set prometheus.prometheusSpec.additionalScrapeConfigs[0].static_configs[0].targets[0]=otel-collector.monitoring.svc.cluster.local:8889 \
             --set alertmanager.enabled=true \
             --set grafana.enabled=false \
-            --wait --timeout=1200s
+            --atomic --timeout=600s
 
   # ---------------------------------------------------------------------------
   # Production
@@ -207,10 +212,15 @@ jobs:
 
           # Prometheus + Alertmanager (for alerting rules evaluation)
           helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+          # Clean up any failed previous release
+          if helm status kube-prometheus-stack -n monitoring 2>/dev/null | grep -q 'STATUS: failed'; then
+            helm uninstall kube-prometheus-stack -n monitoring --wait || true
+            kubectl delete jobs -n monitoring -l app.kubernetes.io/instance=kube-prometheus-stack --ignore-not-found
+          fi
           helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
             --namespace monitoring --create-namespace \
             --set prometheus.prometheusSpec.additionalScrapeConfigs[0].job_name=otel-collector \
             --set prometheus.prometheusSpec.additionalScrapeConfigs[0].static_configs[0].targets[0]=otel-collector.monitoring.svc.cluster.local:8889 \
             --set alertmanager.enabled=true \
             --set grafana.enabled=false \
-            --wait --timeout=600s
+            --atomic --timeout=600s
