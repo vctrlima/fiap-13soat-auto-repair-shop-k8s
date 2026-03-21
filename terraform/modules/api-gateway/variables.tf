@@ -42,3 +42,8 @@ variable "jwt_access_token_secret" {
   type      = string
   sensitive = true
 }
+
+variable "grafana_target_group_arn" {
+  description = "Target Group ARN for Grafana"
+  type        = string
+}

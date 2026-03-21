@@ -51,6 +51,11 @@ output "target_group_arn" {
   value       = module.alb.target_group_arn
 }
 
+output "grafana_target_group_arn" {
+  description = "Target Group ARN for Grafana"
+  value       = module.alb.grafana_target_group_arn
+}
+
 # --- API Gateway ---
 output "api_gateway_url" {
   description = "API Gateway invoke URL"
@@ -60,12 +65,12 @@ output "api_gateway_url" {
 # --- IAM ---
 output "secrets_manager_role_arn" {
   description = "IAM Role ARN for K8s ServiceAccount to access Secrets Manager"
-  value       = module.iam.secrets_manager_role_arn
+  value       = module.irsa.secrets_manager_role_arn
 }
 
 output "load_balancer_controller_role_arn" {
   description = "IAM Role ARN for AWS Load Balancer Controller"
-  value       = module.iam.load_balancer_controller_role_arn
+  value       = module.irsa.load_balancer_controller_role_arn
 }
 
 # --- Secrets Manager ---

@@ -64,9 +64,6 @@ module "iam" {
 
   project_name    = var.project_name
   resource_suffix = local.resource_suffix
-  eks_oidc_issuer = module.eks.oidc_issuer
-  eks_oidc_arn    = module.eks.oidc_provider_arn
-  secrets_manager_secret_arn = aws_secretsmanager_secret.app.arn
 }
 
 module "eks" {
@@ -90,6 +87,18 @@ module "eks" {
   eks_nodes_role_arn   = module.iam.eks_nodes_role_arn
 
   depends_on = [module.iam]
+}
+
+module "irsa" {
+  source = "./modules/irsa"
+
+  project_name               = var.project_name
+  resource_suffix            = local.resource_suffix
+  eks_oidc_issuer            = module.eks.oidc_issuer
+  eks_oidc_arn               = module.eks.oidc_provider_arn
+  secrets_manager_secret_arn = aws_secretsmanager_secret.app.arn
+
+  depends_on = [module.eks]
 }
 
 module "alb" {
@@ -138,6 +147,8 @@ module "api_gateway" {
   lambda_function_name = data.terraform_remote_state.lambda.outputs.function_name
 
   jwt_access_token_secret = var.jwt_access_token_secret
+
+  grafana_target_group_arn = module.alb.grafana_target_group_arn
 }
 
 # -----------------------------------------------------------------------------

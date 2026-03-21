@@ -66,6 +66,23 @@ resource "aws_apigatewayv2_integration" "alb" {
   connection_id      = aws_apigatewayv2_vpc_link.main.id
 }
 
+# --- Grafana ALB Listener Rule ---
+resource "aws_lb_listener_rule" "grafana" {
+  listener_arn = var.alb_listener_arn
+  priority     = 10
+
+  action {
+    type             = "forward"
+    target_group_arn = var.grafana_target_group_arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/grafana", "/grafana/*"]
+    }
+  }
+}
+
 # --- Routes ---
 
 # Public: CPF Authentication (Lambda)
@@ -100,6 +117,19 @@ resource "aws_apigatewayv2_route" "auth_admin" {
 resource "aws_apigatewayv2_route" "auth_refresh" {
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "POST /api/auth/refresh"
+  target    = "integrations/${aws_apigatewayv2_integration.alb.id}"
+}
+
+# Public: Grafana dashboard
+resource "aws_apigatewayv2_route" "grafana" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "ANY /grafana/{proxy+}"
+  target    = "integrations/${aws_apigatewayv2_integration.alb.id}"
+}
+
+resource "aws_apigatewayv2_route" "grafana_root" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "GET /grafana"
   target    = "integrations/${aws_apigatewayv2_integration.alb.id}"
 }
 
