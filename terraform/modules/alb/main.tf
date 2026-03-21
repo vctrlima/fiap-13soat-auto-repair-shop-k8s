@@ -99,7 +99,7 @@ resource "aws_lb_target_group" "main" {
 }
 
 resource "aws_lb_target_group" "grafana" {
-  name        = "${var.project_name}-grafana-${var.resource_suffix}"
+  name        = "ars-grafana-${var.resource_suffix}"
   port        = 3000
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
