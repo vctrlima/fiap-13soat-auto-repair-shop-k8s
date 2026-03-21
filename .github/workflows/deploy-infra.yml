@@ -117,7 +117,7 @@ jobs:
             --set prometheus.prometheusSpec.additionalScrapeConfigs[0].static_configs[0].targets[0]=otel-collector.monitoring.svc.cluster.local:8889 \
             --set alertmanager.enabled=true \
             --set grafana.enabled=false \
-            --wait --timeout=300s
+            --wait --timeout=1200s
 
   # ---------------------------------------------------------------------------
   # Production
@@ -213,4 +213,4 @@ jobs:
             --set prometheus.prometheusSpec.additionalScrapeConfigs[0].static_configs[0].targets[0]=otel-collector.monitoring.svc.cluster.local:8889 \
             --set alertmanager.enabled=true \
             --set grafana.enabled=false \
-            --wait --timeout=300s
+            --wait --timeout=600s
