@@ -5,10 +5,10 @@ project_name       = "auto-repair-shop"
 cluster_name       = "auto-repair-shop-staging"
 kubernetes_version = "1.34"
 
-# Smaller instances for staging
-node_instance_type = "t3.small"
-node_desired_count = 1
-node_min_count     = 1
+# Moderate instances for staging (needs capacity for monitoring stack)
+node_instance_type = "t3.medium"
+node_desired_count = 2
+node_min_count     = 2
 node_max_count     = 3
 
 # Networking
