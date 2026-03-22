@@ -35,17 +35,82 @@ resource "aws_apigatewayv2_vpc_link" "main" {
   }
 }
 
-# --- JWT Authorizer ---
-resource "aws_apigatewayv2_authorizer" "jwt" {
-  api_id           = aws_apigatewayv2_api.main.id
-  authorizer_type  = "JWT"
-  identity_sources = ["$request.header.Authorization"]
-  name             = "${var.project_name}-jwt-authorizer"
+# --- Lambda Authorizer (verifies custom HS256 JWTs) ---
 
-  jwt_configuration {
-    audience = ["auto-repair-shop-api"]
-    issuer   = "https://${var.project_name}.auth"
+data "archive_file" "authorizer" {
+  type        = "zip"
+  source_file = "${path.module}/authorizer/index.js"
+  output_path = "${path.module}/authorizer/authorizer.zip"
+}
+
+resource "aws_iam_role" "authorizer" {
+  name = "${var.project_name}-authorizer-${var.resource_suffix}"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Action = "sts:AssumeRole"
+      Effect = "Allow"
+      Principal = { Service = "lambda.amazonaws.com" }
+    }]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "authorizer_basic" {
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+  role       = aws_iam_role.authorizer.name
+}
+
+resource "aws_cloudwatch_log_group" "authorizer" {
+  name              = "/aws/lambda/${var.project_name}-authorizer-${var.resource_suffix}"
+  retention_in_days = 30
+}
+
+resource "aws_lambda_function" "authorizer" {
+  function_name    = "${var.project_name}-authorizer-${var.resource_suffix}"
+  description      = "JWT authorizer for ${var.project_name} API Gateway"
+  role             = aws_iam_role.authorizer.arn
+  handler          = "index.handler"
+  runtime          = "nodejs22.x"
+  timeout          = 10
+  memory_size      = 128
+  filename         = data.archive_file.authorizer.output_path
+  source_code_hash = data.archive_file.authorizer.output_base64sha256
+
+  environment {
+    variables = {
+      JWT_ACCESS_TOKEN_SECRET = var.jwt_access_token_secret
+    }
   }
+
+  logging_config {
+    log_format = "JSON"
+    log_group  = aws_cloudwatch_log_group.authorizer.name
+  }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.authorizer_basic,
+    aws_cloudwatch_log_group.authorizer,
+  ]
+}
+
+resource "aws_lambda_permission" "authorizer" {
+  statement_id  = "AllowAPIGatewayInvokeAuthorizer"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.authorizer.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.main.execution_arn}/*/*"
+}
+
+resource "aws_apigatewayv2_authorizer" "jwt" {
+  api_id                            = aws_apigatewayv2_api.main.id
+  authorizer_type                   = "REQUEST"
+  authorizer_uri                    = aws_lambda_function.authorizer.invoke_arn
+  authorizer_payload_format_version = "2.0"
+  identity_sources                  = ["$request.header.Authorization"]
+  name                              = "${var.project_name}-jwt-authorizer"
+  enable_simple_responses           = true
+  authorizer_result_ttl_in_seconds  = 300
 }
 
 # --- Lambda Integration (CPF Auth) ---
