@@ -203,7 +203,7 @@ resource "aws_apigatewayv2_route" "api_protected" {
   api_id             = aws_apigatewayv2_api.main.id
   route_key          = "ANY /api/{proxy+}"
   target             = "integrations/${aws_apigatewayv2_integration.alb.id}"
-  authorization_type = "CUSTOM"
+  authorization_type = "JWT"
   authorizer_id      = aws_apigatewayv2_authorizer.jwt.id
 }
 
