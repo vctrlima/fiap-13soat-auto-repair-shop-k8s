@@ -61,7 +61,7 @@ resource "aws_security_group_rule" "alb_to_eks_cluster_sg" {
 }
 
 resource "aws_lb" "main" {
-  name               = "${var.project_name}-alb"
+  name               = "${var.project_name}-${var.environment}-alb"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.id]
@@ -70,7 +70,7 @@ resource "aws_lb" "main" {
   enable_deletion_protection = var.environment == "production"
 
   tags = {
-    Name = "${var.project_name}-alb"
+    Name = "${var.project_name}-${var.environment}-alb"
   }
 }
 
