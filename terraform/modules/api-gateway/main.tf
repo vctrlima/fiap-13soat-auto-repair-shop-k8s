@@ -165,6 +165,12 @@ resource "aws_apigatewayv2_route" "health" {
 }
 
 # Public: Swagger docs (ALB)
+resource "aws_apigatewayv2_route" "docs_root" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "GET /docs"
+  target    = "integrations/${aws_apigatewayv2_integration.alb.id}"
+}
+
 resource "aws_apigatewayv2_route" "docs" {
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "GET /docs/{proxy+}"
