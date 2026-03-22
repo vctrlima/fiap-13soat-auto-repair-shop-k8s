@@ -216,7 +216,7 @@ resource "aws_apigatewayv2_route" "api_protected" {
 # --- Stage ---
 resource "aws_apigatewayv2_stage" "main" {
   api_id      = aws_apigatewayv2_api.main.id
-  name        = var.environment
+  name        = "$default"
   auto_deploy = true
 
   access_log_settings {
