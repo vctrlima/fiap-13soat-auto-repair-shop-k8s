@@ -29,3 +29,9 @@ variable "eks_nodes_security_group_id" {
 variable "eks_cluster_security_group_id" {
   type = string
 }
+
+variable "acm_certificate_arn" {
+  description = "ARN of the ACM certificate for HTTPS"
+  type        = string
+  default     = ""
+}
