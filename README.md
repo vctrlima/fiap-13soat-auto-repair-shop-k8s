@@ -1,13 +1,326 @@
-# Auto Repair Shop — K8s Infrastructure
+# K8s Infrastructure
 
-Terraform modules for provisioning the core AWS infrastructure: VPC, EKS cluster, IAM roles (IRSA), Application Load Balancer, API Gateway (HTTP API with JWT authorizer), and Secrets Manager. This is the **foundation** of the Auto Repair Shop ecosystem and must be deployed first.
+> Módulos Terraform que provisionam a infraestrutura base da AWS para o ecossistema de oficina: VPC, EKS, IAM/IRSA, ALB, API Gateway HTTP v2 e Secrets Manager. **Deve ser o primeiro repositório a ser deployado** — todos os outros dependem de seus outputs.
 
-> **Part of the [Auto Repair Shop](https://github.com/fiap-13soat) ecosystem.**
-> Deploy order: **K8s Infra (this repo)** → Lambda → DB → App
+## Sumário
+
+- [1. Visão Geral](#1-visão-geral)
+- [2. Arquitetura](#2-arquitetura)
+- [3. Tecnologias Utilizadas](#3-tecnologias-utilizadas)
+- [4. Comunicação entre Serviços](#4-comunicação-entre-serviços)
+- [5. Diagramas](#5-diagramas)
+- [6. Execução e Setup](#6-execução-e-setup)
+- [7. Pontos de Atenção](#7-pontos-de-atenção)
+- [8. Boas Práticas e Padrões](#8-boas-práticas-e-padrões)
 
 ---
 
-## Deploy Links
+## 1. Visão Geral
+
+### Propósito
+
+O repositório `k8s` (infra) é responsável por provisionar toda a camada de infraestrutura de rede, computação e segurança sobre a qual os microserviços rodam:
+
+1. **Rede** — VPC com subnets públicas e privadas em 2 AZs, NAT Gateway
+2. **Computação** — Cluster EKS gerenciado com Node Groups auto-escaláveis
+3. **Segurança** — IAM roles com IRSA (IAM Roles for Service Accounts) para acesso granular a serviços AWS
+4. **Roteamento** — Application Load Balancer + VPC Link + API Gateway HTTP v2
+5. **Secrets** — Secrets Manager + ExternalSecrets Operator (K8s → AWS Secrets Manager)
+
+### Problema que Resolve
+
+Sem uma infraestrutura centralizada e versionada, cada microserviço precisaria gerenciar rede, IAM e roteamento individualmente. Este repositório elimina esse problema:
+
+- Um único cluster EKS para todos os microserviços (namespace `auto-repair-shop`)
+- Um único API Gateway como ponto de entrada público com JWT authorizer
+- IRSA garante que cada pod só acessa os recursos AWS que precisa
+- State remoto compartilhado via S3/DynamoDB para outros repositórios Terraform
+
+### Papel na Arquitetura
+
+| Papel                | Descrição                                                                     |
+| -------------------- | ----------------------------------------------------------------------------- |
+| **Fundação**         | Deve ser o primeiro repo deployado — todos os outros dependem de seus outputs |
+| **Ponto de entrada** | API Gateway roteia todas as requisições externas                              |
+| **Autorizador**      | JWT Authorizer valida tokens antes de encaminhar para o EKS                   |
+| **Provedor de rede** | VPC/subnets consumidos por Lambda e DB via remote state                       |
+
+**Ordem de deploy**: **K8s Infra (este repo)** → Lambda → DB → Microserviços
+
+---
+
+## 2. Arquitetura
+
+### Módulos Terraform
+
+```
+terraform/
+├── main.tf              # Root module — orquestra todos os módulos
+├── variables.tf
+├── outputs.tf
+├── environments/
+│   ├── staging/
+│   │   └── terraform.tfvars
+│   └── production/
+│       └── terraform.tfvars
+└── modules/
+    ├── network/          # VPC, subnets, IGW, NAT, route tables
+    ├── eks/              # EKS cluster, node groups, OIDC provider
+    ├── iam/              # IAM roles + sub-module irsa/
+    │   └── irsa/         # Service account annotations por microserviço
+    ├── alb/              # Application Load Balancer + Target Group + Listener
+    └── api-gateway/      # API Gateway HTTP v2, integração ALB, JWT authorizer
+```
+
+### Decisões Arquiteturais
+
+| Decisão                                   | Justificativa                                                              | Trade-off                                                                           |
+| ----------------------------------------- | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| **EKS Managed Node Groups**               | AWS gerencia o provisionamento e atualização dos nós                       | Menos flexibilidade que self-managed; custo do plano de controle EKS                |
+| **IRSA** (IAM Roles for Service Accounts) | Credenciais granulares por pod sem variáveis de ambiente                   | Requer OIDC configurado; complexidade adicional de IAM                              |
+| **API Gateway HTTP v2**                   | Latência menor e custo menor que REST API; suporte a JWT authorizer nativo | Menos recursos que REST API; sem WAF nativo                                         |
+| **VPC Link**                              | ALB privado (sem IP público); API Gateway acessa o EKS via rede interna    | Configuração mais complexa; ponto extra de latência                                 |
+| **ExternalSecrets Operator**              | Secrets Manager → K8s Secret sincronizados automaticamente                 | Depende de CRD instalado no cluster; latência de sincronização                      |
+| **HPA**                                   | Auto-scaling baseado em CPU/Memory sem intervenção manual                  | Requer métricas server instalado (`metrics-server`)                                 |
+| **State remoto S3 + DynamoDB**            | Colaboração segura entre repositórios Terraform                            | Dependência de infraestrutura externa ao Terraform (o bucket S3 deve existir antes) |
+
+### Rotas do API Gateway
+
+| Método | Rota            | Destino         | JWT Obrigatório |
+| ------ | --------------- | --------------- | --------------- |
+| `POST` | `/api/auth/cpf` | Lambda (direto) | Não             |
+| `ANY`  | `/api/{proxy+}` | ALB → EKS       | Sim             |
+| `GET`  | `/health`       | ALB → EKS       | Não             |
+| `GET`  | `/docs`         | ALB → EKS       | Não             |
+
+---
+
+## 3. Tecnologias Utilizadas
+
+| Tecnologia                   | Versão  | Propósito                                         |
+| ---------------------------- | ------- | ------------------------------------------------- |
+| **Terraform**                | ≥ 1.9   | IaC — provisionamento AWS                         |
+| **AWS EKS**                  | 1.32    | Cluster Kubernetes gerenciado                     |
+| **AWS VPC**                  | —       | Rede isolada com subnets públicas/privadas        |
+| **AWS ALB**                  | —       | Load balancer para o cluster EKS                  |
+| **AWS API Gateway**          | HTTP v2 | Gateway público com JWT authorizer                |
+| **AWS IAM / IRSA**           | —       | Roles granulares por Service Account              |
+| **AWS Secrets Manager**      | —       | Armazenamento de secrets de produção              |
+| **ExternalSecrets Operator** | —       | Sincronização Secrets Manager → K8s Secret        |
+| **Kubernetes HPA**           | —       | Auto-scaling por CPU/Memory                       |
+| **GitHub Actions**           | —       | CI/CD com OIDC (sem credenciais de longa duração) |
+
+**Ambientes:**
+| Parâmetro | Staging | Production |
+|---|---|---|
+| Instance type | `t3.small` | `t3.medium` |
+| Nós EKS | 1–3 | 1–5 |
+
+---
+
+## 4. Comunicação entre Serviços
+
+### Remote State Compartilhado
+
+Este repositório expõe outputs via Terraform remote state, consumidos por outros repositórios:
+
+| Output               | Consumidores         |
+| -------------------- | -------------------- |
+| `vpc_id`             | Lambda, DB           |
+| `private_subnet_ids` | Lambda, DB           |
+| `public_subnet_ids`  | ALB                  |
+| `eks_cluster_name`   | CI/CD pipelines      |
+| `api_gateway_url`    | Documentação, testes |
+
+### Outputs Consumidos
+
+| Repositório                           | Output Consumido             | Uso                             |
+| ------------------------------------- | ---------------------------- | ------------------------------- |
+| `fiap-13soat-auto-repair-shop-lambda` | `invoke_arn`, `function_arn` | Integração API Gateway → Lambda |
+
+### Fluxo de Requisição (Runtime)
+
+```
+Client → API Gateway HTTP v2 → (JWT Authorizer) → VPC Link → ALB → EKS Ingress → Service → Pod
+                            ↘ Lambda (rota /api/auth/cpf)
+```
+
+---
+
+## 5. Diagramas
+
+### Infraestrutura Geral
+
+```mermaid
+graph TD
+    Client([Client])
+
+    subgraph "AWS Cloud"
+        subgraph "API Gateway HTTP v2"
+            AGW[API Gateway\nJWT Authorizer]
+            Auth[POST /api/auth/cpf\npúblico]
+            API[ANY /api/{proxy+}\nJWT requerido]
+        end
+
+        subgraph "VPC"
+            subgraph "Public Subnets"
+                NAT[NAT Gateway]
+                ALB[Application\nLoad Balancer]
+            end
+            subgraph "Private Subnets"
+                subgraph "EKS Cluster"
+                    NS[Namespace auto-repair-shop]
+                    HPA[HPA\nmin:2 max:10]
+                    Pods[Microservice Pods]
+                end
+                RDS[(RDS PostgreSQL)]
+                LambdaVPC[Lambda\nCPF Auth]
+            end
+        end
+
+        SM[Secrets Manager]
+        ECR[ECR\nDocker Registry]
+    end
+
+    Client --> AGW
+    AGW --> Auth --> LambdaVPC --> RDS
+    AGW --> API --> ALB --> NS --> Pods
+    Pods --> RDS
+    SM -->|ExternalSecrets| NS
+    ECR -->|pull| Pods
+```
+
+### Pipeline CI/CD
+
+```mermaid
+graph LR
+    PR[Pull Request] --> GHA[GitHub Actions]
+    GHA -->|OIDC| AWS[AWS STS\nAssumeRoleWithWebIdentity]
+    AWS --> Role[IAM Role\nCICD]
+    Role --> TF[terraform plan\nterraform apply]
+    TF --> EKS[EKS Update\nkubectl apply]
+    TF --> AGW[API Gateway\nUpdate]
+```
+
+---
+
+## 6. Execução e Setup
+
+### Pré-requisitos
+
+- Terraform ≥ 1.9
+- AWS CLI configurado com permissões de administrador
+- `kubectl` para interagir com o cluster após provisão
+- Bucket S3 e tabela DynamoDB de state criados (fora do Terraform)
+
+### Inicialização
+
+```bash
+cd terraform
+
+# Staging
+terraform init \
+  -backend-config="environments/staging/backend.tfvars"
+
+# Production
+terraform init \
+  -backend-config="environments/production/backend.tfvars"
+```
+
+### Plan e Apply
+
+```bash
+# Staging
+terraform plan -var-file="environments/staging/terraform.tfvars"
+terraform apply -var-file="environments/staging/terraform.tfvars"
+
+# Production
+terraform plan -var-file="environments/production/terraform.tfvars"
+terraform apply -var-file="environments/production/terraform.tfvars"
+```
+
+### Configurar kubectl
+
+```bash
+aws eks update-kubeconfig \
+  --region us-east-1 \
+  --name auto-repair-shop-cluster
+```
+
+### Variáveis Terraform
+
+| Variável                  | Descrição                              |
+| ------------------------- | -------------------------------------- |
+| `aws_region`              | Região AWS                             |
+| `environment`             | `staging` ou `production`              |
+| `eks_cluster_name`        | Nome do cluster EKS                    |
+| `eks_node_instance_type`  | Tipo de instância EC2                  |
+| `eks_min_size / max_size` | Limites do node group                  |
+| `lambda_invoke_arn`       | ARN da Lambda (input para API Gateway) |
+| `jwt_audience`            | Audience do JWT para o authorizer      |
+
+### State Backend
+
+| Recurso        | Nome                               |
+| -------------- | ---------------------------------- |
+| S3 Bucket      | `auto-repair-shop-terraform-state` |
+| DynamoDB Table | `auto-repair-shop-terraform-locks` |
+
+---
+
+## 7. Pontos de Atenção
+
+### Ordem de Deploy Crítica
+
+Este repositório **deve ser deployado primeiro**. A Lambda lê o remote state deste repositório para obter VPC/subnet IDs. O repositório DB faz o mesmo. Se `terraform apply` aqui falhar, os deployments subsequentes também falharão.
+
+### IRSA e Anotações K8s
+
+Cada microserviço precisa de uma `ServiceAccount` com a annotation `eks.amazonaws.com/role-arn` apontando para o IAM Role criado pelo módulo `iam/irsa`. Sem isso, pods não conseguem acessar SNS, SQS ou DynamoDB.
+
+### ExternalSecrets Operator
+
+O operador deve estar instalado no cluster antes de criar `ExternalSecret` CRDs. Se secrets não sincronizarem (status `SecretSyncedError`), verifique:
+
+1. IRSA da ServiceAccount do operador tem permissão `secretsmanager:GetSecretValue`
+2. O nome do secret no Secrets Manager está correto no CRD
+
+### HPA e Metrics Server
+
+O HPA requer que o `metrics-server` esteja instalado no cluster. Sem ele, o HPA fica em estado `Unknown` e não escala. Verifique com `kubectl top nodes`.
+
+### Cold Start do API Gateway
+
+O API Gateway HTTP v2 tem latência adicional de ~5ms (vs ALB direto). Para cargas muito altas, considere expor o ALB diretamente para chamadas inter-serviço.
+
+---
+
+## 8. Boas Práticas e Padrões
+
+### Segurança
+
+- **OIDC CI/CD** — sem credenciais AWS de longa duração em GitHub Secrets
+- **IRSA** — princípio do menor privilégio por pod
+- **Subnets privadas** — EKS, RDS e Lambda não têm IP público
+- **JWT Authorizer** — validação centralizada no API Gateway
+
+### Gestão de Estado
+
+- Remote state com locking via DynamoDB — previne applies simultâneos
+- Workspaces separados por ambiente (`staging`, `production`)
+- `.terraform.lock.hcl` commitado para reproducibilidade
+
+### Módulos Terraform
+
+- Um módulo por responsabilidade (rede, EKS, IAM, ALB, API Gateway)
+- Outputs explícitos em `outputs.tf` de cada módulo
+- Inputs tipados e documentados em `variables.tf`
+
+### Monitoramento
+
+- CloudWatch Container Insights habilitado no EKS
+- HPA com CPU threshold 70% e Memory threshold 80%
+- Alertas CloudWatch para nós em estado `NotReady`
 
 | Environment                  | URL                                        |
 | ---------------------------- | ------------------------------------------ |
