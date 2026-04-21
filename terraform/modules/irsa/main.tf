@@ -44,7 +44,7 @@ resource "aws_iam_role_policy" "secrets_manager_access" {
           "secretsmanager:GetSecretValue",
           "secretsmanager:DescribeSecret"
         ]
-        Resource = var.secrets_manager_secret_arn
+        Resource = var.secrets_manager_secret_arns
       }
     ]
   })

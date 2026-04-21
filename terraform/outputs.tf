@@ -46,9 +46,24 @@ output "alb_dns_name" {
   value       = module.alb.dns_name
 }
 
-output "target_group_arn" {
-  description = "Target Group ARN for EKS pods"
-  value       = module.alb.target_group_arn
+output "customer_vehicle_target_group_arn" {
+  description = "Target Group ARN for customer-vehicle-service pods"
+  value       = module.alb.customer_vehicle_target_group_arn
+}
+
+output "work_order_target_group_arn" {
+  description = "Target Group ARN for work-order-service pods"
+  value       = module.alb.work_order_target_group_arn
+}
+
+output "billing_target_group_arn" {
+  description = "Target Group ARN for billing-service pods"
+  value       = module.alb.billing_target_group_arn
+}
+
+output "execution_target_group_arn" {
+  description = "Target Group ARN for execution-service pods"
+  value       = module.alb.execution_target_group_arn
 }
 
 output "grafana_target_group_arn" {
@@ -74,14 +89,19 @@ output "load_balancer_controller_role_arn" {
 }
 
 # --- Secrets Manager ---
-output "secrets_manager_arn" {
-  description = "Secrets Manager secret ARN"
-  value       = aws_secretsmanager_secret.app.arn
+output "customer_vehicle_secret_arn" {
+  description = "Secrets Manager secret ARN for customer-vehicle service"
+  value       = aws_secretsmanager_secret.customer_vehicle.arn
 }
 
-output "secrets_manager_name" {
-  description = "Secrets Manager secret name"
-  value       = aws_secretsmanager_secret.app.name
+output "work_order_secret_arn" {
+  description = "Secrets Manager secret ARN for work-order service"
+  value       = aws_secretsmanager_secret.work_order.arn
+}
+
+output "execution_secret_arn" {
+  description = "Secrets Manager secret ARN for execution service"
+  value       = aws_secretsmanager_secret.execution.arn
 }
 
 # --- Lambda (from remote state) ---

@@ -87,12 +87,23 @@ terraform/
 
 ### Rotas do API Gateway
 
-| Método | Rota            | Destino         | JWT Obrigatório |
-| ------ | --------------- | --------------- | --------------- |
-| `POST` | `/api/auth/cpf` | Lambda (direto) | Não             |
-| `ANY`  | `/api/{proxy+}` | ALB → EKS       | Sim             |
-| `GET`  | `/health`       | ALB → EKS       | Não             |
-| `GET`  | `/docs`         | ALB → EKS       | Não             |
+| Método | Rota            | Destino                         | JWT Obrigatório |
+| ------ | --------------- | ------------------------------- | --------------- |
+| `POST` | `/api/auth/cpf` | Lambda (direto)                 | Não             |
+| `ANY`  | `/api/{proxy+}` | ALB → EKS (roteamento por path) | Sim             |
+| `GET`  | `/health`       | ALB → EKS                       | Não             |
+| `GET`  | `/docs`         | ALB → EKS                       | Não             |
+
+### Roteamento por Path no ALB
+
+O ALB roteia requisições para Target Groups distintos com base no path:
+
+| Prioridade | Paths                                                                           | Target Group (porta)      |
+| ---------- | ------------------------------------------------------------------------------- | ------------------------- |
+| 20         | `/api/customers*`, `/api/vehicles*`, `/internal/*`                              | Customer & Vehicle (3001) |
+| 30         | `/api/work-orders*`, `/api/services*`, `/api/parts-or-supplies*`, `/api/sagas*` | Work Order (3002)         |
+| 40         | `/api/invoices*`, `/api/payments*`                                              | Billing (3003)            |
+| 50         | `/api/executions*`, `/api/notifications*`, `/api/metrics*`                      | Execution (3004)          |
 
 ---
 
@@ -376,27 +387,36 @@ graph TB
 
             subgraph "Private Subnets"
                 Lambda[Lambda - CPF Auth]
-                RDS[(RDS PostgreSQL 16)]
 
                 subgraph "EKS Cluster (auto-repair-shop-cluster)"
 
                     subgraph "Namespace: auto-repair-shop"
-                        SA[ServiceAccount<br/>external-secrets-sa]
-                        CM[ConfigMap<br/>auto-repair-shop-config]
-                        ExtSecret[ExternalSecret<br/>auto-repair-shop-secret]
-                        TGB[TargetGroupBinding<br/>auto-repair-shop-tgb]
+                        SA[ServiceAccount\nexternal-secrets-sa]
 
-                        subgraph "Deployment: auto-repair-shop (2-10 replicas)"
-                            Pod1[Pod<br/>Fastify App :3000]
-                            Pod2[Pod<br/>Fastify App :3000]
+                        subgraph "Customer & Vehicle Service"
+                            ExtSecret_CV[ExternalSecret\ncustomer-vehicle-secret]
+                            Dep_CV[Deployment (2-10 replicas)\nFastify :3001]
                         end
 
-                        SVC[Service ClusterIP<br/>auto-repair-shop-service :80]
-                        HPA[HPA<br/>CPU 70% / Mem 80%]
+                        subgraph "Work Order Service"
+                            ExtSecret_WO[ExternalSecret\nwork-order-secret]
+                            Dep_WO[Deployment (2-10 replicas)\nFastify :3002]
+                        end
+
+                        subgraph "Billing Service"
+                            Dep_Bill[Deployment (2-10 replicas)\nFastify :3003]
+                        end
+
+                        subgraph "Execution Service"
+                            ExtSecret_EX[ExternalSecret\nexecution-secret]
+                            Dep_EX[Deployment (2-10 replicas)\nFastify :3004]
+                        end
+
+                        HPA[HPA per service\nCPU 70% / Mem 80%]
                     end
 
                     subgraph "Namespace: monitoring"
-                        OTELCol[OTEL Collector<br/>gRPC :4317 / HTTP :4318]
+                        OTELCol[OTEL Collector\ngRPC :4317 / HTTP :4318]
                         OTELProm[Prometheus Exporter :8889]
                     end
 
@@ -416,8 +436,14 @@ graph TB
     APIGW -- "GET /health, /docs/*\n(public)" --> VPCLink
     VPCLink --> ALB
 
-    %% ALB to K8s
-    ALB -- "TargetGroupBinding\n(target-type: ip)" --> TGB
+    %% ALB path-based routing
+    ALB -- "/api/customers*, /api/vehicles*, /internal/*" --> Dep_CV
+    ALB -- "/api/work-orders*, /api/services*, /api/sagas*" --> Dep_WO
+    ALB -- "/api/invoices*, /api/payments*" --> Dep_Bill
+    ALB -- "/api/executions*, /api/notifications*" --> Dep_EX
+
+    %% Lambda calls CVS internally
+    Lambda -- "GET /internal/customers/:document" --> ALB
     TGB --> SVC
     SVC -- "port 80 → 3000" --> Pod1
     SVC -- "port 80 → 3000" --> Pod2

@@ -47,3 +47,8 @@ variable "grafana_target_group_arn" {
   description = "Target Group ARN for Grafana"
   type        = string
 }
+
+variable "allowed_origins" {
+  description = "Allowed CORS origins for the API Gateway"
+  type        = list(string)
+}

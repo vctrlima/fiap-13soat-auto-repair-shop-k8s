@@ -96,11 +96,15 @@ module "eks" {
 module "irsa" {
   source = "./modules/irsa"
 
-  project_name               = var.project_name
-  resource_suffix            = local.resource_suffix
-  eks_oidc_issuer            = module.eks.oidc_issuer
-  eks_oidc_arn               = module.eks.oidc_provider_arn
-  secrets_manager_secret_arn = aws_secretsmanager_secret.app.arn
+  project_name    = var.project_name
+  resource_suffix = local.resource_suffix
+  eks_oidc_issuer = module.eks.oidc_issuer
+  eks_oidc_arn    = module.eks.oidc_provider_arn
+  secrets_manager_secret_arns = [
+    aws_secretsmanager_secret.customer_vehicle.arn,
+    aws_secretsmanager_secret.work_order.arn,
+    aws_secretsmanager_secret.execution.arn,
+  ]
 
   depends_on = [module.eks]
 }
@@ -111,7 +115,6 @@ module "alb" {
   project_name    = var.project_name
   environment     = var.environment
   resource_suffix = local.resource_suffix
-  app_port        = var.app_port
 
   vpc_id            = module.network.vpc_id
   public_subnet_ids = module.network.public_subnet_ids
@@ -164,32 +167,88 @@ module "api_gateway" {
   jwt_access_token_secret = var.jwt_access_token_secret
 
   grafana_target_group_arn = module.alb.grafana_target_group_arn
+
+  allowed_origins = var.allowed_origins
 }
 
 # -----------------------------------------------------------------------------
-# Secrets Manager (shared across app and Lambda)
+# Secrets Manager — one secret per service (Database URL differs per service)
 # -----------------------------------------------------------------------------
 
-resource "aws_secretsmanager_secret" "app" {
-  name                    = "${var.project_name}/app-secrets-${local.resource_suffix}"
-  description             = "Application secrets for ${var.project_name}"
+resource "aws_secretsmanager_secret" "customer_vehicle" {
+  name                    = "${var.project_name}/customer-vehicle-secrets-${local.resource_suffix}"
+  description             = "Secrets for customer-vehicle-service (${var.project_name})"
   recovery_window_in_days = var.environment == "production" ? 30 : 0
 
   tags = {
-    Name = "${var.project_name}-app-secrets-${local.resource_suffix}"
+    Name = "${var.project_name}-customer-vehicle-secrets-${local.resource_suffix}"
   }
 }
 
-resource "aws_secretsmanager_secret_version" "app" {
-  secret_id = aws_secretsmanager_secret.app.id
+resource "aws_secretsmanager_secret_version" "customer_vehicle" {
+  secret_id = aws_secretsmanager_secret.customer_vehicle.id
 
   secret_string = jsonencode({
     DB_USER                  = var.db_username
     DB_PASSWORD              = var.db_password
     DB_HOST                  = var.db_host
     DB_PORT                  = tostring(var.db_port)
-    DB_NAME                  = var.db_name
-    DATABASE_URL             = "postgresql://${var.db_username}:${var.db_password}@${var.db_host}:${var.db_port}/${var.db_name}?schema=public"
+    DB_NAME                  = "customer_vehicle_db"
+    DATABASE_URL             = "postgresql://${var.db_username}:${var.db_password}@${var.db_host}:${var.db_port}/customer_vehicle_db?schema=public"
+    JWT_ACCESS_TOKEN_SECRET  = var.jwt_access_token_secret
+    JWT_REFRESH_TOKEN_SECRET = var.jwt_refresh_token_secret
+    SMTP_USERNAME            = var.smtp_username
+    SMTP_PASSWORD            = var.smtp_password
+  })
+}
+
+resource "aws_secretsmanager_secret" "work_order" {
+  name                    = "${var.project_name}/work-order-secrets-${local.resource_suffix}"
+  description             = "Secrets for work-order-service (${var.project_name})"
+  recovery_window_in_days = var.environment == "production" ? 30 : 0
+
+  tags = {
+    Name = "${var.project_name}-work-order-secrets-${local.resource_suffix}"
+  }
+}
+
+resource "aws_secretsmanager_secret_version" "work_order" {
+  secret_id = aws_secretsmanager_secret.work_order.id
+
+  secret_string = jsonencode({
+    DB_USER                  = var.db_username
+    DB_PASSWORD              = var.db_password
+    DB_HOST                  = var.db_host
+    DB_PORT                  = tostring(var.db_port)
+    DB_NAME                  = "work_order_db"
+    DATABASE_URL             = "postgresql://${var.db_username}:${var.db_password}@${var.db_host}:${var.db_port}/work_order_db?schema=public"
+    JWT_ACCESS_TOKEN_SECRET  = var.jwt_access_token_secret
+    JWT_REFRESH_TOKEN_SECRET = var.jwt_refresh_token_secret
+    SMTP_USERNAME            = var.smtp_username
+    SMTP_PASSWORD            = var.smtp_password
+  })
+}
+
+resource "aws_secretsmanager_secret" "execution" {
+  name                    = "${var.project_name}/execution-secrets-${local.resource_suffix}"
+  description             = "Secrets for execution-service (${var.project_name})"
+  recovery_window_in_days = var.environment == "production" ? 30 : 0
+
+  tags = {
+    Name = "${var.project_name}-execution-secrets-${local.resource_suffix}"
+  }
+}
+
+resource "aws_secretsmanager_secret_version" "execution" {
+  secret_id = aws_secretsmanager_secret.execution.id
+
+  secret_string = jsonencode({
+    DB_USER                  = var.db_username
+    DB_PASSWORD              = var.db_password
+    DB_HOST                  = var.db_host
+    DB_PORT                  = tostring(var.db_port)
+    DB_NAME                  = "execution_db"
+    DATABASE_URL             = "postgresql://${var.db_username}:${var.db_password}@${var.db_host}:${var.db_port}/execution_db?schema=public"
     JWT_ACCESS_TOKEN_SECRET  = var.jwt_access_token_secret
     JWT_REFRESH_TOKEN_SECRET = var.jwt_refresh_token_secret
     SMTP_USERNAME            = var.smtp_username

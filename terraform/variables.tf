@@ -83,11 +83,7 @@ variable "private_subnet_cidrs" {
 }
 
 # --- Application ---
-variable "app_port" {
-  description = "Port the application listens on"
-  type        = number
-  default     = 3000
-}
+# (app_port removed — each service has a dedicated port: 3001–3004)
 
 # --- Database (consumed from database-infrastructure outputs) ---
 variable "db_host" {
@@ -101,11 +97,7 @@ variable "db_port" {
   default     = 5432
 }
 
-variable "db_name" {
-  description = "Name of the PostgreSQL database"
-  type        = string
-  default     = "auto_repair_shop"
-}
+# db_name removed — each service database name is hardcoded in main.tf
 
 variable "db_username" {
   description = "Master username for the database"
@@ -144,6 +136,12 @@ variable "smtp_password" {
   type        = string
   default     = ""
   sensitive   = true
+}
+
+variable "allowed_origins" {
+  description = "List of allowed CORS origins for the API Gateway"
+  type        = list(string)
+  default     = []
 }
 
 # --- Tags ---

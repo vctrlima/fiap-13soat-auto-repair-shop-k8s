@@ -13,7 +13,7 @@ resource "aws_apigatewayv2_api" "main" {
   description   = "API Gateway for ${var.project_name}"
 
   cors_configuration {
-    allow_origins = ["*"]
+    allow_origins = var.allowed_origins
     allow_methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
     allow_headers = ["Content-Type", "Authorization", "X-Request-ID"]
     max_age       = 3600

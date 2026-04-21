@@ -14,6 +14,7 @@ variable "eks_oidc_arn" {
   type = string
 }
 
-variable "secrets_manager_secret_arn" {
-  type = string
+variable "secrets_manager_secret_arns" {
+  description = "ARNs of Secrets Manager secrets to grant access to"
+  type        = list(string)
 }

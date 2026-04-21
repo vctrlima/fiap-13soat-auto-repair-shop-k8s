@@ -10,9 +10,7 @@ variable "resource_suffix" {
   type = string
 }
 
-variable "app_port" {
-  type = number
-}
+# app_port removed — each service has a dedicated port (3001–3004)
 
 variable "vpc_id" {
   type = string
