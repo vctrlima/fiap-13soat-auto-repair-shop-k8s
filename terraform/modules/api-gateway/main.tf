@@ -1,10 +1,13 @@
 # =============================================================================
 # API Gateway Module - HTTP API with Lambda + ALB integrations
 # Routes:
-#   POST /api/auth/cpf → Lambda (CPF-based auth, public)
-#   ANY  /api/{proxy+} → ALB (protected by JWT authorizer)
-#   GET  /health       → ALB (public)
-#   GET  /docs/*       → ALB (public)
+#   POST /api/auth/cpf      → Lambda (CPF-based customer auth, public)
+#   POST /api/auth/login    → ALB/auth-service (admin email+password auth, public)
+#   POST /api/auth/register → ALB/auth-service (admin registration, public)
+#   POST /api/auth/refresh  → ALB/auth-service (token refresh, public)
+#   ANY  /api/{proxy+}      → ALB (protected by JWT authorizer)
+#   GET  /health            → ALB (public)
+#   GET  /docs/*            → ALB (public)
 # =============================================================================
 
 resource "aws_apigatewayv2_api" "main" {
@@ -174,6 +177,20 @@ resource "aws_apigatewayv2_route" "docs_root" {
 resource "aws_apigatewayv2_route" "docs" {
   api_id    = aws_apigatewayv2_api.main.id
   route_key = "GET /docs/{proxy+}"
+  target    = "integrations/${aws_apigatewayv2_integration.alb.id}"
+}
+
+# Public: Admin auth — email+password login
+resource "aws_apigatewayv2_route" "auth_admin_login" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /api/auth/login"
+  target    = "integrations/${aws_apigatewayv2_integration.alb.id}"
+}
+
+# Public: Admin registration (first-run / seed)
+resource "aws_apigatewayv2_route" "auth_admin_register" {
+  api_id    = aws_apigatewayv2_api.main.id
+  route_key = "POST /api/auth/register"
   target    = "integrations/${aws_apigatewayv2_integration.alb.id}"
 }
 
