@@ -199,6 +199,9 @@ resource "aws_secretsmanager_secret_version" "customer_vehicle" {
     JWT_REFRESH_TOKEN_SECRET = var.jwt_refresh_token_secret
     SMTP_USERNAME            = var.smtp_username
     SMTP_PASSWORD            = var.smtp_password
+    ADMIN_PASSWORD_SALT      = var.admin_password_salt
+    SEED_ADMIN_EMAIL         = var.seed_admin_email
+    SEED_ADMIN_PASSWORD      = var.seed_admin_password
   })
 }
 

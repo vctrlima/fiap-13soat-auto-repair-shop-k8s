@@ -144,6 +144,25 @@ variable "allowed_origins" {
   default     = []
 }
 
+# --- Admin Seed ---
+variable "admin_password_salt" {
+  description = "Salt used for PBKDF2 password hashing of the default admin (must match auth-service)"
+  type        = string
+  sensitive   = true
+}
+
+variable "seed_admin_email" {
+  description = "Email address for the default admin seeded on first deployment"
+  type        = string
+  default     = "admin@email.com"
+}
+
+variable "seed_admin_password" {
+  description = "Plain-text password for the default admin seed (stored hashed in the DB)"
+  type        = string
+  sensitive   = true
+}
+
 # --- Tags ---
 variable "tags" {
   description = "Common tags to apply to all resources"
