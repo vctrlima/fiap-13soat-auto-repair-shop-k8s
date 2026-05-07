@@ -169,29 +169,29 @@ graph TD
 
     subgraph "AWS Cloud"
         subgraph "API Gateway HTTP v2"
-            AGW[API Gateway\nJWT Authorizer]
-            Auth[POST /api/auth/cpf\npúblico]
-            API[ANY /api/{proxy+}\nJWT requerido]
+            AGW["API Gateway<br/>JWT Authorizer"]
+            Auth["POST /api/auth/cpf<br/>público"]
+            API["ANY /api/{proxy+}<br/>JWT requerido"]
         end
 
         subgraph "VPC"
             subgraph "Public Subnets"
                 NAT[NAT Gateway]
-                ALB[Application\nLoad Balancer]
+                ALB["Application<br/>Load Balancer"]
             end
             subgraph "Private Subnets"
                 subgraph "EKS Cluster"
                     NS[Namespace auto-repair-shop]
-                    HPA[HPA\nmin:2 max:10]
+                    HPA["HPA<br/>min:2 max:10"]
                     Pods[Microservice Pods]
                 end
                 RDS[(RDS PostgreSQL)]
-                LambdaVPC[Lambda\nCPF Auth]
+                LambdaVPC["Lambda<br/>CPF Auth"]
             end
         end
 
         SM[Secrets Manager]
-        ECR[ECR\nDocker Registry]
+        ECR["ECR<br/>Docker Registry"]
     end
 
     Client --> AGW
@@ -207,11 +207,11 @@ graph TD
 ```mermaid
 graph LR
     PR[Pull Request] --> GHA[GitHub Actions]
-    GHA -->|OIDC| AWS[AWS STS\nAssumeRoleWithWebIdentity]
-    AWS --> Role[IAM Role\nCICD]
-    Role --> TF[terraform plan\nterraform apply]
-    TF --> EKS[EKS Update\nkubectl apply]
-    TF --> AGW[API Gateway\nUpdate]
+    GHA -->|OIDC| AWS["AWS STS<br/>AssumeRoleWithWebIdentity"]
+    AWS --> Role["IAM Role<br/>CICD"]
+    Role --> TF["terraform plan<br/>terraform apply"]
+    TF --> EKS["EKS Update<br/>kubectl apply"]
+    TF --> AGW["API Gateway<br/>Update"]
 ```
 
 ---
@@ -391,32 +391,32 @@ graph TB
                 subgraph "EKS Cluster (auto-repair-shop-cluster)"
 
                     subgraph "Namespace: auto-repair-shop"
-                        SA[ServiceAccount\nexternal-secrets-sa]
+                        SA["ServiceAccount<br/>external-secrets-sa"]
 
                         subgraph "Customer & Vehicle Service"
-                            ExtSecret_CV[ExternalSecret\ncustomer-vehicle-secret]
-                            Dep_CV[Deployment (2-10 replicas)\nFastify :3001]
+                            ExtSecret_CV["ExternalSecret<br/>customer-vehicle-secret"]
+                            Dep_CV["Deployment (2-10 replicas)<br/>Fastify :3001"]
                         end
 
                         subgraph "Work Order Service"
-                            ExtSecret_WO[ExternalSecret\nwork-order-secret]
-                            Dep_WO[Deployment (2-10 replicas)\nFastify :3002]
+                            ExtSecret_WO["ExternalSecret<br/>work-order-secret"]
+                            Dep_WO["Deployment (2-10 replicas)<br/>Fastify :3002"]
                         end
 
                         subgraph "Billing Service"
-                            Dep_Bill[Deployment (2-10 replicas)\nFastify :3003]
+                            Dep_Bill["Deployment (2-10 replicas)<br/>Fastify :3003"]
                         end
 
                         subgraph "Execution Service"
-                            ExtSecret_EX[ExternalSecret\nexecution-secret]
-                            Dep_EX[Deployment (2-10 replicas)\nFastify :3004]
+                            ExtSecret_EX["ExternalSecret<br/>execution-secret"]
+                            Dep_EX["Deployment (2-10 replicas)<br/>Fastify :3004"]
                         end
 
-                        HPA[HPA per service\nCPU 70% / Mem 80%]
+                        HPA["HPA per service<br/>CPU 70% / Mem 80%"]
                     end
 
                     subgraph "Namespace: monitoring"
-                        OTELCol[OTEL Collector\ngRPC :4317 / HTTP :4318]
+                        OTELCol["OTEL Collector<br/>gRPC :4317 / HTTP :4318"]
                         OTELProm[Prometheus Exporter :8889]
                     end
 
@@ -432,8 +432,8 @@ graph TB
 
     %% External traffic
     APIGW -- "POST /api/auth/cpf" --> Lambda
-    APIGW -- "ANY /api/{proxy+}\n(JWT protected)" --> VPCLink
-    APIGW -- "GET /health, /docs/*\n(public)" --> VPCLink
+    APIGW -- "ANY /api/{proxy+} (JWT protected)" --> VPCLink
+    APIGW -- "GET /health, /docs/* (public)" --> VPCLink
     VPCLink --> ALB
 
     %% ALB path-based routing
